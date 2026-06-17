@@ -153,15 +153,23 @@ function renderDashboard() {
     var qMap = {};
     rows.forEach(function(r) {
         var id = String(r.question_id);
-        if (!qMap[id]) qMap[id] = { attempts: 0, correct: 0 };
+        if (!qMap[id]) qMap[id] = { attempts: 0, correct: 0, latest: '' };
         qMap[id].attempts++;
         if (r.is_correct) qMap[id].correct++;
+        if (r.created_at && r.created_at > qMap[id].latest) qMap[id].latest = r.created_at;
     });
+
+    function fmtTime(ts) {
+        if (!ts) return '-';
+        var d = new Date(ts);
+        var pad = function(n) { return n < 10 ? '0' + n : n; };
+        return d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes());
+    }
 
     var qList = [];
     for (var id in qMap) {
         var s = qMap[id];
-        qList.push({ id: id, attempts: s.attempts, correct: s.correct, rate: Math.round(s.correct / s.attempts * 100) });
+        qList.push({ id: id, attempts: s.attempts, correct: s.correct, rate: Math.round(s.correct / s.attempts * 100), latest: s.latest });
     }
     qList.sort(function(a, b) { return a.rate - b.rate; });
 
@@ -202,7 +210,7 @@ function renderDashboard() {
         html += '<p style="text-align:center;color:#888;padding:40px">暂无数据</p>';
     } else {
         html += '<table><thead><tr>'
-        + '<th>题号</th><th>答题次数</th><th>正确率</th><th style="min-width:80px">评级</th>'
+        + '<th>题号</th><th>答题次数</th><th>正确率</th><th style="min-width:80px">评级</th><th>最近答题</th>'
         + '</tr></thead><tbody>';
         qList.forEach(function(q) {
             var rateColor = q.rate < 50 ? 'bad' : (q.rate < 80 ? 'ok' : 'good');
@@ -212,6 +220,7 @@ function renderDashboard() {
             + '<td>' + q.attempts + '</td>'
             + '<td><strong style="color:' + (q.rate < 50 ? '#dc2626' : q.rate < 80 ? '#d97706' : '#059669') + '">' + q.rate + '%</strong></td>'
             + '<td><span class="badge ' + rateColor + '">' + rateLabel + '</span></td>'
+            + '<td style="color:#888;font-size:.8em">' + fmtTime(q.latest) + '</td>'
             + '</tr>';
         });
         html += '</tbody></table>';
@@ -228,14 +237,15 @@ function exportCSV() {
     var qMap = {};
     rows.forEach(function(r) {
         var id = String(r.question_id);
-        if (!qMap[id]) qMap[id] = { attempts: 0, correct: 0 };
+        if (!qMap[id]) qMap[id] = { attempts: 0, correct: 0, latest: '' };
         qMap[id].attempts++;
         if (r.is_correct) qMap[id].correct++;
+        if (r.created_at && r.created_at > qMap[id].latest) qMap[id].latest = r.created_at;
     });
-    var csv = '题号,答题次数,正确次数,正确率\n';
+    var csv = '题号,答题次数,正确次数,正确率,最近答题\n';
     for (var id in qMap) {
         var s = qMap[id];
-        csv += id + ',' + s.attempts + ',' + s.correct + ',' + Math.round(s.correct / s.attempts * 100) + '%\n';
+        csv += id + ',' + s.attempts + ',' + s.correct + ',' + Math.round(s.correct / s.attempts * 100) + '%,' + fmtTime(s.latest) + '\n';
     }
     navigator.clipboard.writeText(csv).then(function() {
         alert('已复制到剪贴板！');
