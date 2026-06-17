@@ -53,7 +53,6 @@ body {
   padding: 8px 12px; border-radius: 8px; border: 1.5px solid #e5e7eb;
   background: #fff; font-size: .85em; font-family: inherit; cursor: pointer;
 }
-.toolbar .refresh { margin-left: auto; color: #888; font-size: .8em; }
 
 table {
   width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px;
@@ -120,7 +119,7 @@ function logout() {
 }
 
 function fetchStats() {
-    var url = SUPABASE_URL + '/rest/v1/answer_logs?select=question_id,is_correct,device_id,created_at&order=created_at.desc&limit=5000';
+    var url = SUPABASE_URL + '/rest/v1/answer_logs?select=question_id,is_correct,created_at&order=created_at.desc&limit=5000';
     return fetch(url, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
     }).then(function(resp) {
@@ -147,12 +146,10 @@ function renderDashboard() {
     var totalCorrect = rows.filter(function(r) { return r.is_correct; }).length;
     var overallRate = totalAnswers > 0 ? Math.round(totalCorrect / totalAnswers * 100) : 0;
 
-    // Unique devices
     var devices = {};
     allRows.forEach(function(r) { if (r.device_id) devices[r.device_id] = true; });
     var deviceCount = Object.keys(devices).length;
 
-    // Aggregate by question
     var qMap = {};
     rows.forEach(function(r) {
         var id = String(r.question_id);
@@ -168,7 +165,6 @@ function renderDashboard() {
     }
     qList.sort(function(a, b) { return a.rate - b.rate; });
 
-    // Per-device stats
     var devStats = {};
     allRows.forEach(function(r) {
         var did = r.device_id || 'unknown';
@@ -179,7 +175,6 @@ function renderDashboard() {
 
     var html = '';
 
-    // Summary cards
     html += '<div class="cards">'
     + '<div class="card-stat blue"><div class="num">' + totalAnswers + '</div><div class="label">总答题次数</div></div>'
     + '<div class="card-stat green"><div class="num">' + overallRate + '%</div><div class="label">总正确率</div></div>'
@@ -187,7 +182,6 @@ function renderDashboard() {
     + '<div class="card-stat blue"><div class="num">' + deviceCount + '</div><div class="label">设备数</div></div>'
     + '</div>';
 
-    // Device filter + toolbar
     html += '<div class="toolbar">'
     + '<button class="accent" onclick="loadDashboard()">刷新数据</button>'
     + '<button onclick="exportCSV()">导出 CSV</button>'
@@ -201,7 +195,7 @@ function renderDashboard() {
     }
     html += '</select>'
     + '<button onclick="logout()">退出登录</button>'
-    + '<span class="refresh">自动刷新: 30s</span>'
+    + '<span style="margin-left:auto;color:#888;font-size:.8em">自动刷新: 30s</span>'
     + '</div>';
 
     if (qList.length === 0) {
@@ -243,17 +237,20 @@ function exportCSV() {
         var s = qMap[id];
         csv += id + ',' + s.attempts + ',' + s.correct + ',' + Math.round(s.correct / s.attempts * 100) + '%\n';
     }
-    var ta = document.createElement('textarea');
-    ta.value = csv;
-    ta.style.position = 'fixed'; ta.style.left = '-9999px';
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    alert('已复制到剪贴板！');
+    navigator.clipboard.writeText(csv).then(function() {
+        alert('已复制到剪贴板！');
+    }).catch(function() {
+        var ta = document.createElement('textarea');
+        ta.value = csv;
+        ta.style.position = 'fixed'; ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        alert('已复制到剪贴板！');
+    });
 }
 
-// Init
 if (sessionStorage.getItem('admin_logged_in') === '1') {
     loadDashboard();
 } else {
