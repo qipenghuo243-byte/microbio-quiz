@@ -1,7 +1,7 @@
 {
-  "version": "1.0",
-  "versionCode": 1,
+  "version": "1.1",
+  "versionCode": 2,
   "apkUrl": "https://zuixin123123123.github.io/microbio-quiz/update/微生物学做题练习.apk",
   "updateDate": "2026-06-17",
-  "changelog": "首次发布：408道微生物学习题，支持章节筛选、夜间模式、错题复习"
+  "changelog": "修复新版安卓兼容性问题，优化更新提示"
 }
