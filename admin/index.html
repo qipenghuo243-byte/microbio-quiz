@@ -10,7 +10,7 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Microsoft YaHei", "PingFang SC", sans-serif;
   background: #f0f2f5; color: #1a1a1a; min-height: 100vh;
 }
-.container { max-width: 900px; margin: 0 auto; padding: 20px 16px 60px; }
+.container { max-width: 960px; margin: 0 auto; padding: 20px 16px 60px; }
 
 .header { text-align: center; padding: 28px 0 10px; }
 .header h1 { font-size: 1.4em; margin-bottom: 4px; }
@@ -33,7 +33,7 @@ body {
 
 .cards { display: flex; gap: 12px; margin: 16px 0; flex-wrap: wrap; }
 .card-stat {
-  flex: 1; min-width: 120px; background: #fff; border-radius: 12px;
+  flex: 1; min-width: 110px; background: #fff; border-radius: 12px;
   box-shadow: 0 1px 3px rgba(0,0,0,.08); padding: 18px 20px; text-align: center;
 }
 .card-stat .num { font-size: 2em; font-weight: 800; }
@@ -49,13 +49,17 @@ body {
 }
 .toolbar button:hover { border-color: #4f46e5; }
 .toolbar button.accent { background: #4f46e5; color: #fff; border-color: #4f46e5; }
+.toolbar select {
+  padding: 8px 12px; border-radius: 8px; border: 1.5px solid #e5e7eb;
+  background: #fff; font-size: .85em; font-family: inherit; cursor: pointer;
+}
 .toolbar .refresh { margin-left: auto; color: #888; font-size: .8em; }
 
 table {
   width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px;
   overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,.08);
 }
-th, td { padding: 10px 12px; text-align: left; font-size: .88em; }
+th, td { padding: 10px 12px; text-align: left; font-size: .85em; }
 th { background: #f8f9fb; font-weight: 600; border-bottom: 2px solid #e5e7eb; }
 td { border-bottom: 1px solid #f3f4f6; }
 tr:hover td { background: #f8f9ff; }
@@ -69,8 +73,7 @@ tr:hover td { background: #f8f9ff; }
 @media (max-width: 600px) {
   .container { padding: 12px 8px 60px; }
   .header h1 { font-size: 1.2em; }
-  table { font-size: .78em; }
-  th, td { padding: 8px 6px; }
+  th, td { padding: 8px 6px; font-size: .78em; }
 }
 </style>
 </head>
@@ -87,16 +90,15 @@ tr:hover td { background: #f8f9ff; }
 var SUPABASE_URL = 'https://owckvahinoewzundfcpv.supabase.co';
 var SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im93Y2t2YWhpbm9ld3p1bmRmY3B2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODE2ODAzOTQsImV4cCI6MjA5NzI1NjM5NH0.mNSeY8dpZQD1aqFACY3CcZQV3SS1wOZreKi9zkLxFpg';
 var PASSWORD = 'microbio2026';
-var ALL_QUESTIONS = []; // Will be loaded
 
-var sortCol = null;
-var sortAsc = false;
+var allRows = [];
+var deviceFilter = 'all';
 
 function renderLogin() {
     document.getElementById('content').innerHTML = ''
     + '<div class="login-box">'
     + '<h3 style="margin-bottom:12px">管理员登录</h3>'
-    + '<input type="password" id="pwdInput" placeholder="请输入管理密码" onkeydown="if(event.key===\'Enter\')doLogin()">'
+    + '<input type="password" id="pwdInput" placeholder="请输入管理密码" onkeydown="if(event.key==\'Enter\')doLogin()">'
     + '<button onclick="doLogin()">进入后台</button>'
     + '<div class="error" id="loginError"></div>'
     + '</div>';
@@ -117,28 +119,38 @@ function logout() {
     renderLogin();
 }
 
-async function fetchStats() {
-    var url = SUPABASE_URL + '/rest/v1/answer_logs?select=question_id,is_correct&order=created_at.desc&limit=5000';
-    var resp = await fetch(url, {
+function fetchStats() {
+    var url = SUPABASE_URL + '/rest/v1/answer_logs?select=question_id,is_correct,device_id,created_at&order=created_at.desc&limit=5000';
+    return fetch(url, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + SUPABASE_KEY }
+    }).then(function(resp) {
+        if (!resp.ok) throw new Error('Network error: ' + resp.status);
+        return resp.json();
     });
-    if (!resp.ok) throw new Error('Network error: ' + resp.status);
-    return resp.json();
 }
 
 function loadDashboard() {
     document.getElementById('content').innerHTML = '<p style="text-align:center;color:#888;padding:40px">加载中...</p>';
     fetchStats().then(function(rows) {
-        renderDashboard(rows);
+        allRows = rows;
+        deviceFilter = 'all';
+        renderDashboard();
     }).catch(function(e) {
         document.getElementById('content').innerHTML = '<p style="text-align:center;color:#dc2626;padding:40px">加载失败: ' + e.message + '<br><button onclick="loadDashboard()" style="margin-top:12px;padding:8px 20px;border-radius:8px;border:1.5px solid #e5e7eb;background:#fff;cursor:pointer;font-family:inherit">重试</button></p>';
     });
 }
 
-function renderDashboard(rows) {
+function renderDashboard() {
+    var rows = deviceFilter === 'all' ? allRows : allRows.filter(function(r) { return r.device_id === deviceFilter; });
+
     var totalAnswers = rows.length;
     var totalCorrect = rows.filter(function(r) { return r.is_correct; }).length;
     var overallRate = totalAnswers > 0 ? Math.round(totalCorrect / totalAnswers * 100) : 0;
+
+    // Unique devices
+    var devices = {};
+    allRows.forEach(function(r) { if (r.device_id) devices[r.device_id] = true; });
+    var deviceCount = Object.keys(devices).length;
 
     // Aggregate by question
     var qMap = {};
@@ -152,16 +164,18 @@ function renderDashboard(rows) {
     var qList = [];
     for (var id in qMap) {
         var s = qMap[id];
-        qList.push({
-            id: id,
-            attempts: s.attempts,
-            correct: s.correct,
-            rate: Math.round(s.correct / s.attempts * 100)
-        });
+        qList.push({ id: id, attempts: s.attempts, correct: s.correct, rate: Math.round(s.correct / s.attempts * 100) });
     }
-    qList.sort(function(a, b) { return a.rate - b.rate; }); // worst first
+    qList.sort(function(a, b) { return a.rate - b.rate; });
 
-    var uniqueQuestions = qList.length;
+    // Per-device stats
+    var devStats = {};
+    allRows.forEach(function(r) {
+        var did = r.device_id || 'unknown';
+        if (!devStats[did]) devStats[did] = { attempts: 0, correct: 0 };
+        devStats[did].attempts++;
+        if (r.is_correct) devStats[did].correct++;
+    });
 
     var html = '';
 
@@ -169,32 +183,38 @@ function renderDashboard(rows) {
     html += '<div class="cards">'
     + '<div class="card-stat blue"><div class="num">' + totalAnswers + '</div><div class="label">总答题次数</div></div>'
     + '<div class="card-stat green"><div class="num">' + overallRate + '%</div><div class="label">总正确率</div></div>'
-    + '<div class="card-stat purple"><div class="num">' + uniqueQuestions + '</div><div class="label">涉及题目数</div></div>'
+    + '<div class="card-stat purple"><div class="num">' + qList.length + '</div><div class="label">涉及题目</div></div>'
+    + '<div class="card-stat blue"><div class="num">' + deviceCount + '</div><div class="label">设备数</div></div>'
     + '</div>';
 
-    // Toolbar
+    // Device filter + toolbar
     html += '<div class="toolbar">'
     + '<button class="accent" onclick="loadDashboard()">刷新数据</button>'
     + '<button onclick="exportCSV()">导出 CSV</button>'
+    + '<select onchange="deviceFilter=this.value;renderDashboard()">'
+    + '<option value="all">全部设备</option>';
+    for (var did in devStats) {
+        var ds = devStats[did];
+        var sel = deviceFilter === did ? ' selected' : '';
+        var dr = Math.round(ds.correct / ds.attempts * 100);
+        html += '<option value="' + did + '"' + sel + '>设备 ' + did + ' (' + ds.attempts + '题, ' + dr + '%)</option>';
+    }
+    html += '</select>'
     + '<button onclick="logout()">退出登录</button>'
     + '<span class="refresh">自动刷新: 30s</span>'
     + '</div>';
 
-    // Table
     if (qList.length === 0) {
         html += '<p style="text-align:center;color:#888;padding:40px">暂无数据</p>';
     } else {
         html += '<table><thead><tr>'
-        + '<th>题号</th><th>题干</th><th>答题次数</th><th>正确率</th><th style="min-width:80px">评级</th>'
+        + '<th>题号</th><th>答题次数</th><th>正确率</th><th style="min-width:80px">评级</th>'
         + '</tr></thead><tbody>';
-
         qList.forEach(function(q) {
-            var stem = '(题目 ' + q.id + ')';
             var rateColor = q.rate < 50 ? 'bad' : (q.rate < 80 ? 'ok' : 'good');
             var rateLabel = q.rate < 50 ? '需加强' : (q.rate < 80 ? '一般' : '良好');
             html += '<tr>'
             + '<td><strong>#' + q.id + '</strong></td>'
-            + '<td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">' + escHtml(stem) + '</td>'
             + '<td>' + q.attempts + '</td>'
             + '<td><strong style="color:' + (q.rate < 50 ? '#dc2626' : q.rate < 80 ? '#d97706' : '#059669') + '">' + q.rate + '%</strong></td>'
             + '<td><span class="badge ' + rateColor + '">' + rateLabel + '</span></td>'
@@ -205,40 +225,32 @@ function renderDashboard(rows) {
 
     document.getElementById('content').innerHTML = html;
 
-    // Auto-refresh every 30 seconds
     if (window._refreshTimer) clearTimeout(window._refreshTimer);
     window._refreshTimer = setTimeout(loadDashboard, 30000);
 }
 
 function exportCSV() {
-    fetchStats().then(function(rows) {
-        var qMap = {};
-        rows.forEach(function(r) {
-            var id = String(r.question_id);
-            if (!qMap[id]) qMap[id] = { attempts: 0, correct: 0 };
-            qMap[id].attempts++;
-            if (r.is_correct) qMap[id].correct++;
-        });
-        var csv = '题号,答题次数,正确次数,正确率\n';
-        for (var id in qMap) {
-            var s = qMap[id];
-            csv += id + ',' + s.attempts + ',' + s.correct + ',' + Math.round(s.correct / s.attempts * 100) + '%\n';
-        }
-        var ta = document.createElement('textarea');
-        ta.value = csv;
-        ta.style.position = 'fixed'; ta.style.left = '-9999px';
-        document.body.appendChild(ta);
-        ta.select();
-        document.execCommand('copy');
-        document.body.removeChild(ta);
-        alert('已复制到剪贴板！');
+    var rows = deviceFilter === 'all' ? allRows : allRows.filter(function(r) { return r.device_id === deviceFilter; });
+    var qMap = {};
+    rows.forEach(function(r) {
+        var id = String(r.question_id);
+        if (!qMap[id]) qMap[id] = { attempts: 0, correct: 0 };
+        qMap[id].attempts++;
+        if (r.is_correct) qMap[id].correct++;
     });
-}
-
-function escHtml(s) {
-    var div = document.createElement('div');
-    div.textContent = s;
-    return div.innerHTML;
+    var csv = '题号,答题次数,正确次数,正确率\n';
+    for (var id in qMap) {
+        var s = qMap[id];
+        csv += id + ',' + s.attempts + ',' + s.correct + ',' + Math.round(s.correct / s.attempts * 100) + '%\n';
+    }
+    var ta = document.createElement('textarea');
+    ta.value = csv;
+    ta.style.position = 'fixed'; ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('已复制到剪贴板！');
 }
 
 // Init
