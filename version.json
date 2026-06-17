@@ -1,7 +1,7 @@
 {
-  "version": "1.3.2",
-  "versionCode": 6,
+  "version": "1.3.3",
+  "versionCode": 7,
   "apkUrl": "https://zuixin123123123.github.io/microbio-quiz/update/微生物学做题练习.apk",
   "updateDate": "2026-06-17",
-  "changelog": "新增设备ID记录，后台可按设备筛选数据"
+  "changelog": "修复更新提示机制，使用更可靠的 Java Bridge 方式检查更新"
 }
