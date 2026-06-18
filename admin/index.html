@@ -100,6 +100,7 @@ var PASSWORD = 'microbio2026';
 
 var allRows = [];
 var deviceFilter = 'all';
+var typeFilter = 'all';
 var sortBy = 'rate';
 var qStems = {};
 var showStems = false;
@@ -140,7 +141,7 @@ function fetchStats() {
 }
 
 function fetchQuestions() {
-    return fetch('questions.json?_v=4').then(function(r) { return r.json(); }).then(function(qs) {
+    return fetch('questions.json?_v=5').then(function(r) { return r.json(); }).then(function(qs) {
         qStems = {};
         qs.forEach(function(q) { qStems[String(q.id)] = q; });
     });
@@ -161,7 +162,9 @@ function loadDashboard() {
 }
 
 function renderDashboard() {
-    var rows = deviceFilter === 'all' ? allRows : allRows.filter(function(r) { return r.device_id === deviceFilter; });
+    var rows = allRows;
+    if (deviceFilter !== 'all') rows = rows.filter(function(r) { return r.device_id === deviceFilter; });
+    if (typeFilter !== 'all') rows = rows.filter(function(r) { var qd = qStems[String(r.question_id)]; return qd && qd.type === typeFilter; });
 
     var totalAnswers = rows.length;
     var totalCorrect = rows.filter(function(r) { return r.is_correct; }).length;
@@ -212,16 +215,41 @@ function renderDashboard() {
 
     var html = '';
 
+    var typeNames = {choice:'选择',judge:'判断',fill:'填空',glossary:'名词',qa:'问答'};
+    var typeTotal = {}; var typeCorrect = {};
+    rows.forEach(function(r) {
+        var qd = qStems[String(r.question_id)];
+        var t = qd ? qd.type : 'unknown';
+        if (!typeTotal[t]) { typeTotal[t] = 0; typeCorrect[t] = 0; }
+        typeTotal[t]++;
+        if (r.is_correct) typeCorrect[t]++;
+    });
+
+    var typeCards = '';
+    for (var t in typeTotal) {
+        var tr = Math.round((typeCorrect[t]||0) / typeTotal[t] * 100);
+        typeCards += '<div class="card-stat" style="min-width:70px;padding:12px 14px"><div class="num" style="font-size:1.3em">' + tr + '%</div><div class="label" style="font-size:.72em">' + (typeNames[t]||t) + '(' + typeTotal[t] + ')</div></div>';
+    }
+
     html += '<div class="cards">'
     + '<div class="card-stat blue"><div class="num">' + totalAnswers + '</div><div class="label">总答题次数</div></div>'
     + '<div class="card-stat green"><div class="num">' + overallRate + '%</div><div class="label">总正确率</div></div>'
     + '<div class="card-stat purple"><div class="num">' + qList.length + '</div><div class="label">涉及题目</div></div>'
     + '<div class="card-stat blue"><div class="num">' + deviceCount + '</div><div class="label">设备数</div></div>'
-    + '</div>';
+    + '</div>'
+    + '<div class="cards" style="margin-top:4px">' + typeCards + '</div>';
 
     html += '<div class="toolbar">'
     + '<button class="accent" onclick="loadDashboard()">刷新数据</button>'
     + '<button onclick="exportCSV()">导出 CSV</button>'
+    + '<select onchange="typeFilter=this.value;renderDashboard()">'
+    + '<option value="all"' + (typeFilter==='all'?' selected':'') + '>全部题型</option>'
+    + '<option value="choice"' + (typeFilter==='choice'?' selected':'') + '>选择题</option>'
+    + '<option value="judge"' + (typeFilter==='judge'?' selected':'') + '>判断题</option>'
+    + '<option value="fill"' + (typeFilter==='fill'?' selected':'') + '>填空题</option>'
+    + '<option value="glossary"' + (typeFilter==='glossary'?' selected':'') + '>名词解释</option>'
+    + '<option value="qa"' + (typeFilter==='qa'?' selected':'') + '>问答题</option>'
+    + '</select>'
     + '<select onchange="sortBy=this.value;renderDashboard()">'
     + '<option value="rate"' + (sortBy==='rate'?' selected':'') + '>按正确率</option>'
     + '<option value="time-desc"' + (sortBy==='time-desc'?' selected':'') + '>按时间↓</option>'
@@ -256,8 +284,11 @@ function renderDashboard() {
             var shortStem = stem.length > 25 ? stem.substring(0, 25) + '…' : stem;
             var answer = qd ? qd.answer : '';
             var expl = qd ? qd.explanation || '' : '';
+            var typeNames = {choice:'选择题',judge:'判断题',fill:'填空题',glossary:'名词解释',qa:'问答题'};
+            var typeTagStyles = {choice:'#ede9fe;#7c3aed',judge:'#fce7f3;#db2777',fill:'#ecfdf5;#059669',glossary:'#fef3c7;#d97706',qa:'#ede9fe;#7c3aed'};
+            var tts = (typeTagStyles[qd ? qd.type : ''] || '#eee;#888').split(';');
             html += '<tr class="expand-row" onclick="var d=this.nextElementSibling;d.classList.toggle(\'show\')">'
-            + '<td><strong>#' + q.id + '</strong></td>'
+            + '<td><strong>#' + q.id + '</strong>' + (qd && qd.type ? ' <span style="display:inline-block;padding:0 5px;border-radius:6px;font-size:.65em;background:' + tts[0] + ';color:' + tts[1] + '">' + (typeNames[qd.type]||'') + '</span>' : '') + '</td>'
             + (showStems ? '<td style="font-size:.82em">' + shortStem + ' <span style="color:#4f46e5;font-size:0.75em">展开▼</span></td>' : '')
             + '<td>' + q.attempts + '</td>'
             + '<td><strong style="color:' + (q.rate < 50 ? '#dc2626' : q.rate < 80 ? '#d97706' : '#059669') + '">' + q.rate + '%</strong></td>'
@@ -285,7 +316,9 @@ function renderDashboard() {
 }
 
 function exportCSV() {
-    var rows = deviceFilter === 'all' ? allRows : allRows.filter(function(r) { return r.device_id === deviceFilter; });
+    var rows = allRows;
+    if (deviceFilter !== 'all') rows = rows.filter(function(r) { return r.device_id === deviceFilter; });
+    if (typeFilter !== 'all') rows = rows.filter(function(r) { var qd = qStems[String(r.question_id)]; return qd && qd.type === typeFilter; });
     var qMap = {};
     rows.forEach(function(r) {
         var id = String(r.question_id);
