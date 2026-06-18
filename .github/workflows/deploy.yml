@@ -22,6 +22,9 @@ jobs:
           var PASSWORD = '${{ secrets.ADMIN_PASSWORD }}';
           EOF
 
+      - name: Remove .gitignore for Pages deploy
+        run: rm -f .gitignore
+
       - name: Deploy to gh-pages
         uses: peaceiris/actions-gh-pages@v4
         with:
