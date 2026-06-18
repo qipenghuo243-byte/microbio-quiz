@@ -140,7 +140,7 @@ function fetchStats() {
 }
 
 function fetchQuestions() {
-    return fetch('questions.json?_v=3').then(function(r) { return r.json(); }).then(function(qs) {
+    return fetch('questions.json?_v=4').then(function(r) { return r.json(); }).then(function(qs) {
         qStems = {};
         qs.forEach(function(q) { qStems[String(q.id)] = q; });
     });
@@ -265,7 +265,10 @@ function renderDashboard() {
             + '<td style="color:#888;font-size:.8em">' + fmtTime(q.latest) + '</td>'
             + '</tr>';
             if (showStems && stem) {
+                var typeNames = {choice:'选择题',judge:'判断题',fill:'填空题',glossary:'名词解释',qa:'问答题'};
+                var typeName = typeNames[qd.type] || '';
                 html += '<tr class="expand-detail"><td colspan="6">'
+                + (typeName ? '<div style="margin-bottom:4px"><span style="display:inline-block;padding:1px 8px;border-radius:4px;font-size:.75em;background:#ede9fe;color:#7c3aed">' + typeName + '</span></div>' : '')
                 + '<div><strong>题干：</strong>' + stem + '</div>'
                 + '<div style="margin-top:4px"><strong>答案：</strong><span class="ans ' + (answer === '√' ? 'correct' : (answer === '×' ? 'wrong' : 'correct')) + '">' + answer + '</span></div>'
                 + (expl ? '<div style="margin-top:4px;color:#888">' + expl + '</div>' : '')
